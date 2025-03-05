@@ -32,8 +32,8 @@ app.post("/webhook", (req, res) => {
     if (
       body.entry &&
       body.entry[0].changes &&
-      body.entry[0].changes[0].value.message &&
-      body.entry[0].changes[0].vaue.message[0]
+      body.entry[0].changes[0].value.messages &&
+      body.entry[0].changes[0].vaue.messages[0]
     ) {
       let phone_number_id =
         body.entry[0].challenge[0].value.metadata.phone_number_id;
