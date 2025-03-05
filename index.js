@@ -7,68 +7,131 @@ const app = express().use(body_parser.json());
 const SEND_REQ_TOKEN = process.env.SEND_REQ_TOKEN;
 const VERIFY_WEBHOOK = process.env.VERIFY_WEBHOOK;
 
+console.log("Starting server initialization...");
+console.log(
+  `VERIFY_WEBHOOK token configured: ${VERIFY_WEBHOOK ? "Yes" : "No"}`
+);
+console.log(`SEND_REQ_TOKEN configured: ${SEND_REQ_TOKEN ? "Yes" : "No"}`);
+
 app.listen(8000 || process.env.PORT, () => {
   console.log("⚡ Server start");
+  console.log(`Server running on port: ${8000 || process.env.PORT}`);
 });
 
 app.get("/webhook", (req, res) => {
+  console.log("GET /webhook endpoint hit");
   let mode = req.query["hub.mode"];
   let challenge = req.query["hub.challenge"];
   let token = req.query["hub.verify_token"];
 
+  console.log(`Webhook verification request received:`);
+  console.log(`- Mode: ${mode}`);
+  console.log(`- Token: ${token}`);
+  console.log(`- Challenge: ${challenge}`);
+
   if (mode && token) {
     if (mode === "subscribe" && token === VERIFY_WEBHOOK) {
+      console.log("Webhook verification successful");
       res.status(200).send(challenge);
     } else {
+      console.log("Webhook verification failed - invalid token or mode");
       res.send(403);
     }
+  } else {
+    console.log("Webhook verification failed - missing mode or token");
+    res.send(403);
   }
 });
 
 app.post("/webhook", (req, res) => {
   console.log("SERVER STARTED!!!");
+  console.log("POST /webhook endpoint hit");
   let body = req.body;
+  console.log("Request body received:");
   console.log(JSON.stringify(body, null, 2));
+
   if (body.object) {
+    console.log("BODY PASSED - Valid object property found");
+    console.log(`Object type: ${body.object}`);
+
     if (
       body.entry &&
       body.entry[0].changes &&
       body.entry[0].changes[0].value.messages &&
       body.entry[0].changes[0].vaue.messages[0]
     ) {
-      let phone_number_id =
-        body.entry[0].challenge[0].value.metadata.phone_number_id;
-      let from = body.entry[0].changes[0].value.messages[0].from;
-      let msg_body = body.entry[0].changes[0].value.messages[0].text.body;
+      console.log("BODY DATA PASSED - All required properties exist");
+      console.log("Extracting message data...");
 
-      axios({
-        method: "POST",
-        url:
-          "https://graph.facebook.com/v22.0/" +
-          phone_number_id +
-          "/messages?access_token=" +
-          SEND_REQ_TOKEN,
-        data: {
-          messaging_product: "whatsapp",
-          to: from,
-          type: "template",
-          text: {
-            body: "Unga bunga let's goooooooooo",
+      try {
+        let phone_number_id =
+          body.entry[0].challenge[0].value.metadata.phone_number_id;
+        let from = body.entry[0].changes[0].value.messages[0].from;
+        let msg_body = body.entry[0].changes[0].value.messages[0].text.body;
+
+        console.log("BODY DATA PASSED");
+        console.log("BODY DATA EXTRACTED");
+        console.log(`Phone Number ID: ${phone_number_id}`);
+        console.log(`From: ${from}`);
+        console.log(`Message Body: ${msg_body}`);
+
+        console.log("Preparing to send WhatsApp response...");
+        console.log(
+          `API URL: https://graph.facebook.com/v22.0/${phone_number_id}/messages`
+        );
+
+        axios({
+          method: "POST",
+          url:
+            "https://graph.facebook.com/v22.0/" +
+            phone_number_id +
+            "/messages?access_token=" +
+            SEND_REQ_TOKEN,
+          data: {
+            messaging_product: "whatsapp",
+            to: from,
+            type: "template",
+            text: {
+              body: "Unga bunga let's goooooooooo",
+            },
           },
-        },
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+          .then((response) => {
+            console.log("WhatsApp API response successful:");
+            console.log(JSON.stringify(response.data, null, 2));
+          })
+          .catch((error) => {
+            console.error("WhatsApp API error:");
+            console.error(error.response ? error.response.data : error.message);
+          });
 
-      res.sendStatus(200);
+        console.log("Sending 200 response to webhook request");
+        res.sendStatus(200);
+      } catch (error) {
+        console.error("Error processing webhook data:");
+        console.error(error);
+        console.log("Sending 500 response due to processing error");
+        res.sendStatus(500);
+      }
     } else {
+      console.log(
+        "Required message properties not found in the webhook payload"
+      );
+      console.log("Sending 404 response");
       res.sendStatus(404);
     }
+  } else {
+    console.log("Invalid webhook payload - missing 'object' property");
+    console.log("Sending 404 response");
+    res.sendStatus(404);
   }
 });
 
 app.get("/", (req, res) => {
+  console.log("GET / endpoint hit - serving status page");
   res.status(200).send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -213,4 +276,5 @@ app.get("/", (req, res) => {
     </body>
     </html>
     `);
+  console.log("Status page served successfully");
 });
