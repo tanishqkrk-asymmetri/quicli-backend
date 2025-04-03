@@ -12,10 +12,63 @@ console.log(
   `VERIFY_WEBHOOK token configured: ${VERIFY_WEBHOOK ? "Yes" : "No"}`
 );
 console.log(`SEND_REQ_TOKEN configured: ${SEND_REQ_TOKEN ? "Yes" : "No"}`);
-
-app.listen(8000 || process.env.PORT, () => {
+app.listen(process.env.PORT, () => {
   console.log("⚡ Server start");
-  console.log(`Server running on port: ${8000 || process.env.PORT}`);
+});
+
+// app.listen(8000, () => {
+//   console.log("⚡ Server start");
+// });
+
+app.get("/flow", (req, res) => {
+  res.status(200).send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Flow URL</title>
+      <style>
+        :root {
+          --primary: #8b5cf6;
+          --dark: #121212;
+          --darker: #0a0a0a;
+          --text: #f8fafc;
+          --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+        body {
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          background-color: var(--darker);
+          color: var(--text);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          margin: 0;
+        }
+        .container {
+          width: 85%;
+          max-width: 500px;
+          background-color: var(--dark);
+          padding: 2rem;
+          border-radius: 12px;
+          box-shadow: var(--shadow);
+          text-align: center;
+        }
+        h1 {
+          color: var(--primary);
+          margin-bottom: 1rem;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Flow URL</h1>
+        <p>This is the Flow URL endpoint for WhatsApp integration.</p>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 app.get("/webhook", (req, res) => {
@@ -43,7 +96,8 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-app.post("/webhook", (req, res) => {
+console.log("Right above /webhook");
+app.post("/webhook", async (req, res) => {
   console.log("SERVER STARTED!!!");
   console.log("POST /webhook endpoint hit");
   let body = req.body;
@@ -53,24 +107,22 @@ app.post("/webhook", (req, res) => {
   if (body.object) {
     console.log("BODY PASSED - Valid object property found");
     console.log(`Object type: ${body.object}`);
-
     if (
       body.entry &&
       body.entry[0].changes &&
       body.entry[0].changes[0].value.messages &&
-      body.entry[0].changes[0].vaue.messages[0]
+      body.entry[0].changes[0].value.messages[0]
     ) {
+      // body.entry[0].changes[0].value.contacts[0].profile.name
       console.log("BODY DATA PASSED - All required properties exist");
       console.log("Extracting message data...");
-
       try {
         let phone_number_id =
-          body.entry[0].challenge[0].value.metadata.phone_number_id;
+          body.entry[0].changes[0].value.metadata.phone_number_id;
         let from = body.entry[0].changes[0].value.messages[0].from;
         let msg_body = body.entry[0].changes[0].value.messages[0].text.body;
-
+        console.log(msg_body);
         console.log("BODY DATA PASSED");
-        console.log("BODY DATA EXTRACTED");
         console.log(`Phone Number ID: ${phone_number_id}`);
         console.log(`From: ${from}`);
         console.log(`Message Body: ${msg_body}`);
@@ -80,6 +132,14 @@ app.post("/webhook", (req, res) => {
           `API URL: https://graph.facebook.com/v22.0/${phone_number_id}/messages`
         );
 
+        console.log("===============================================");
+        console.log(body.entry[0].changes[0].value.contacts[0].wa_id);
+        console.log("===============================================");
+        // const short = await axios.get(
+        //   `https://ulvis.net/api.php?url=https://quicli.vercel.app?${from}&custom=quicli&private=1`
+        // );
+
+        // console.log(short);
         axios({
           method: "POST",
           url:
@@ -90,10 +150,120 @@ app.post("/webhook", (req, res) => {
           data: {
             messaging_product: "whatsapp",
             to: from,
-            type: "template",
-            text: {
-              body: "Unga bunga let's goooooooooo",
+            // text: {
+            //   preview_url: true,
+            //   body: `Visit https://quicli.vercel.app?${from} to book a doctor.`,
+            // },
+            type: "interactive",
+            interactive: {
+              type: "cta_url",
+              header: {
+                type: "text",
+                text: `Hi ${
+                  body.entry[0].changes[0].value.contacts[0].profile.name ||
+                  "Human"
+                }`,
+              },
+              body: {
+                text: "Book a doctor from the link below.",
+              },
+              footer: {
+                text: "",
+              },
+              action: {
+                name: "cta_url",
+                parameters: {
+                  display_text: "Health Checkup",
+                  url: `https://quicli.vercel.app/checkup#${from}/`,
+                },
+              },
             },
+
+            // type: "template",
+            // template: {
+            //   namespace: "your-namespace",
+            //   language: {
+            //     policy: "deterministic",
+            //     code: "your-language-and-locale-code",
+            //   },
+            //   name: "your-template-name",
+            //   components: [
+            //     {
+            //       type: "header",
+            //       parameters: [
+            //         {
+            //           type: "text",
+            //           text: "replacement_text",
+            //         },
+            //       ],
+            //     },
+            //     {
+            //       type: "body",
+            //       parameters: [
+            //         {
+            //           type: "text",
+            //           text: "replacement_text",
+            //         },
+            //         {
+            //           type: "currency",
+            //           currency: {
+            //             fallback_value: "$100.99",
+            //             code: "USD",
+            //             amount_1000: 100990,
+            //           },
+            //         },
+            //         {
+            //           type: "date_time",
+            //           date_time: {
+            //             fallback_value: "February 25, 1977",
+            //             day_of_week: 5,
+            //             day_of_month: 25,
+            //             year: 1977,
+            //             month: 2,
+            //             hour: 15,
+            //             minute: 33,
+            //             // "timestamp": 1485470276
+            //           },
+            //         },
+            //       ],
+            //     },
+
+            //     {
+            //       type: "button",
+            //       sub_type: "quick_reply",
+            //       index: "0",
+            //       parameters: [
+            //         {
+            //           type: "payload",
+            //           payload:
+            //             "aGlzIHRoaXMgaXMgY29vZHNhc2phZHdpcXdlMGZoIGFTIEZISUQgV1FEV0RT",
+            //         },
+            //       ],
+            //     },
+            //     {
+            //       type: "button",
+            //       sub_type: "url",
+            //       index: "1",
+            //       parameters: [
+            //         {
+            //           type: "text",
+            //           text: "9rwnB8RbYmPF5t2Mn09x4h",
+            //         },
+            //       ],
+            //     },
+            //     {
+            //       type: "button",
+            //       sub_type: "url",
+            //       index: "2",
+            //       parameters: [
+            //         {
+            //           type: "text",
+            //           text: "ticket.pdf",
+            //         },
+            //       ],
+            //     },
+            //   ],
+            // },
           },
           headers: {
             "Content-Type": "application/json",
@@ -278,3 +448,5 @@ app.get("/", (req, res) => {
     `);
   console.log("Status page served successfully");
 });
+
+//
